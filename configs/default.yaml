@@ -1,0 +1,33 @@
+# Grounded-SAM 批量预标注默认配置
+
+device: "cuda:0"   # 无 GPU 时脚本会自动回退到 cpu
+
+# 检测器：开放词表 Grounding DINO（HuggingFace）
+dino_model: "IDEA-Research/grounding-dino-base"
+# 分割器：SAM（HuggingFace）；工业质量可用 facebook/sam-vit-huge
+sam_model: "facebook/sam-vit-large"
+
+# 模型本地缓存目录（download_weights.py 会下载到这里）
+model_dir: "./models"
+
+# 文本提示：多类别用 " . " 分隔（Grounding DINO 惯例）
+text_prompt: "camouflaged animal . fish . frog . bird . insect"
+
+box_threshold: 0.35
+text_threshold: 0.25
+# 过滤接近整图的框（开放提示如 "camouflaged animal" 时常见）
+max_box_area_ratio: 0.90
+
+# 继续核对：pending 纯图（已核对的 209 张在 RRCOD_reviewed/train，勿动）
+input_dir: "../RS2-SAM2/your_data/RRCOD_reviewed/pending_images"
+output_dir: "../RS2-SAM2/your_data/RRCOD_reviewed/pending_work"
+
+# 输出选项
+save_combined_mask: true      # 所有实例合并成一张二值 PNG (0/255)
+save_instance_masks: false    # 另存每个实例的独立掩码
+save_overlay: true            # 可视化叠图，便于人工抽检
+save_meta_json: true          # boxes / phrases / scores
+export_coco: false            # 额外导出 COCO instances json
+
+# 图像后缀
+image_exts: [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"]

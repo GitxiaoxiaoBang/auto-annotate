@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grounded-SAM 标注工作台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=19" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>Grounded-SAM 标注工作台</strong>
+    </div>
+    <div class="top-actions">
+      <span id="healthPill" class="status-pill">连接中…</span>
+      <button class="btn" id="btnReload">刷新列表</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-section side-input">
+        <div class="side-head">
+          输入图片文件夹
+          <small id="inputDirLabel" class="side-path" title="">raw_images/</small>
+        </div>
+        <div class="folder-row">
+          <button class="btn primary btn-sm" id="btnOpenFolder">打开文件夹</button>
+          <button class="btn btn-sm" id="btnUseDefaultIn">默认</button>
+        </div>
+        <input type="search" id="imgSearch" class="side-search" placeholder="搜索图片名…" />
+        <ul class="img-list" id="imgList"></ul>
+      </div>
+      <div class="side-section side-output">
+        <div class="side-head">
+          输出掩码（点开看 PNG）
+          <small id="outputDirLabel" class="side-path" title="">outputs/masks/</small>
+        </div>
+        <ul class="img-list out-list" id="outList"></ul>
+      </div>
+      <div class="side-section side-texts">
+        <div class="side-head">
+          输出文本（refs.txt）
+          <small id="textsDirLabel" class="side-path" title="">outputs/refs.txt</small>
+        </div>
+        <ul class="img-list text-list" id="textList"></ul>
+      </div>
+    </aside>
+
+    <div class="modal hidden" id="folderModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <strong>选择输入图片文件夹</strong>
+          <button class="btn btn-sm" id="btnCloseFolder">关闭</button>
+        </div>
+        <div class="folder-path-bar">
+          <input type="text" id="browsePathInput" />
+          <button class="btn btn-sm" id="btnBrowseGo">进入</button>
+          <button class="btn btn-sm" id="btnBrowseUp">上级</button>
+        </div>
+        <div class="browse-meta" id="browseMeta"></div>
+        <ul class="browse-list" id="browseList"></ul>
+        <div class="modal-foot">
+          <span></span>
+          <button class="btn primary" id="btnBrowseUse">使用当前文件夹</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="deleteModal">
+      <div class="modal-card modal-card-sm">
+        <div class="modal-head">
+          <strong>确认删除</strong>
+          <button class="btn btn-sm" id="btnDeleteCancelX" type="button">关闭</button>
+        </div>
+        <div class="modal-body" id="deleteModalBody">
+          <p>确定删除当前图片吗？</p>
+          <ul class="delete-warn-list">
+            <li>输入图片文件</li>
+            <li>对应掩码（masks / corrected）</li>
+            <li>refs.txt 里该图片对应的那一行文本</li>
+          </ul>
+          <p class="delete-warn-note">此操作不可恢复。</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="btnDeleteCancel" type="button">取消</button>
+          <button class="btn danger" id="btnDeleteConfirm" type="button">确认删除</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="workspace">
+      <div class="current-bar">
+        <div class="current-info">
+          <span class="current-label">当前图片</span>
+          <strong id="currentName">未选择</strong>
+          <span id="dirtyPill" class="dirty-pill">已保存</span>
+        </div>
+        <div class="current-actions">
+          <button class="btn" id="btnUndo">撤销</button>
+          <button class="btn" id="btnClear">清空掩码</button>
+          <button class="btn danger" id="btnDelete" title="删除图片及对应掩码/文本">删除图片</button>
+          <button class="btn danger" id="btnAuto">自动标注</button>
+          <button class="btn primary btn-save-current" id="btnSave">保存当前图片</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="tool-group">
+          <button class="tool active" data-tool="poly" title="多边形">多边形</button>
+          <button class="tool" data-tool="brush" title="画笔">画笔</button>
+          <button class="tool" data-tool="eraser" title="橡皮">橡皮</button>
+          <button class="tool" data-tool="box" title="框选SAM">框选SAM</button>
+          <button class="tool" data-tool="point" title="点选SAM">点选SAM</button>
+        </div>
+        <label class="brush-wrap">笔刷
+          <input type="range" id="brushSize" min="1" max="80" value="5" />
+          <span id="brushVal">5</span>
+        </label>
+        <label class="brush-wrap">多边形
+          <select id="polyMode">
+            <option value="replace">替换掩码</option>
+            <option value="add">叠加</option>
+            <option value="subtract">挖空</option>
+          </select>
+        </label>
+        <div class="tool-group zoom-group">
+          <button class="btn btn-sm" id="btnZoomOut" title="缩小">−</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+          <button class="btn btn-sm" id="btnZoomIn" title="放大">+</button>
+          <button class="btn btn-sm" id="btnZoomFit" title="适应窗口">适应</button>
+        </div>
+        <label class="brush-wrap" style="margin-left:auto">
+          透明度
+          <input type="range" id="maskAlpha" min="10" max="90" value="45" />
+        </label>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="stage" id="stage">
+          <canvas id="baseCanvas"></canvas>
+          <canvas id="maskCanvas"></canvas>
+          <canvas id="uiCanvas"></canvas>
+          <div class="loading" id="loading">处理中…</div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="inspector">
+      <div class="insp-head">文本（与当前图绑定）</div>
+      <div class="block">
+        <label>文本提示 / Caption</label>
+        <textarea id="prompt" placeholder="可手写；也可先标掩码再让 AI 生成">fish . pipefish . camouflaged animal</textarea>
+      </div>
+
+      <div class="block ai-block">
+        <div class="insp-head" style="padding:0 0 .5rem">Qwen3.8-27B 对话生成</div>
+        <div id="aiChatLog" class="ai-chat-log"></div>
+        <label>对 AI 说</label>
+        <textarea id="aiInstruction" rows="16">任务：为指定目标生成“指代性描述（Referring Expressions）”。
+
+输入图像说明：
+图像中有一个被半透明绿色掩码覆盖的目标。
+
+核心指令：
+
+隐匿标注：在生成描述时，绝对不能提到“绿色”、“掩码”、“覆盖物”、“标注”、“高亮”、“半透明”、“涂层”、“色块”或任何与绿色遮罩相关的词汇。你必须假装这个绿色完全不存在，只关注它覆盖的底层真实物体本身的视觉属性。
+
+精准指代：该图像中存在多个同类目标（例如多只鸟）。你必须通过以下维度提供具有唯一确定性的描述，从而在不提到“绿色”的前提下，让读者能且仅能定位到这个被覆盖的目标：
+
+空间方位：它在场景中的具体位置，以及它与其他类似物体的相对位置关系（如：上方、下方、左侧、右侧、靠近水边、居中偏上等）。
+
+环境上下文：它周围的地面（多石、沙滩、泥地、水际线）或相邻物体的特征。
+
+姿态与行为：它的动作（如：低头觅食、站立、背对、面朝右下方、俯身等）。
+
+外观细节：它的羽毛花纹、体型大小、颜色（除绿色外，如灰褐色斑驳）以及与其他个体的形态差异。
+
+输出要求：
+
+语言：必须使用英文 (English)。
+
+格式：提供 3-5 个不同长度和侧重点的短句/短语，适用于训练和测试。
+
+语气：自然、客观、符合指代图像分割/检测 (RIS/REC) 数据集规范（不含“There is”, “I can see”等废话）。
+
+输出示例样式：
+
+[基于绝对方位与行为的短语]
+
+[基于相对邻近关系的描述]
+
+[基于细节特征的复杂指代句子]
+
+用英语。</textarea>
+        <div class="ai-actions">
+          <button class="btn primary" id="btnAIGen">AI 生成描述</button>
+          <button class="btn" id="btnAIApplySave" title="把当前文本框写入 refs.txt，不调用 AI、不改掩码">填入并保存文本</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="insp-head" style="padding:0 0 .5rem">检测参数</div>
+        <label>Box 阈值</label>
+        <input type="number" id="boxThr" value="0.30" min="0" max="1" step="0.05" />
+        <label>Text 阈值</label>
+        <input type="number" id="textThr" value="0.25" min="0" max="1" step="0.05" />
+        <label>框选 SAM 合并模式</label>
+        <select id="boxMode">
+          <option value="replace">替换整张掩码</option>
+          <option value="add">叠加到现有</option>
+          <option value="subtract">从现有减去</option>
+        </select>
+      </div>
+      <div class="block">
+        <div class="insp-head" style="padding:0 0 .5rem">当前信息</div>
+        <div class="meta-box" id="metaBox">未选择图像</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js?v=23"></script>
+</body>
+</html>

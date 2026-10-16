@@ -1,0 +1,36 @@
+# 大模型权重（用 scripts/download_weights.py 下载）
+models/
+weights/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# 运行产物与本地数据
+outputs/
+raw_images/*
+!raw_images/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.env
+
+# 日志与临时
+*.log
+*.tmp
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+# 推荐使用已有 conda 环境 rs2sam2（torch 2.11+cu128，适配 RTX 5090）
+# conda activate rs2sam2
+torch>=2.1
+torchvision
+transformers>=4.44
+accelerate
+safetensors
+opencv-python
+numpy
+Pillow
+tqdm
+pyyaml
+timm
+fastapi
+uvicorn
+python-multipart
+aiofiles
